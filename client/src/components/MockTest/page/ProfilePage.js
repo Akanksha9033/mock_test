@@ -11,7 +11,7 @@ import {
   FaSignOutAlt,
 } from "react-icons/fa";
  
-const REACT_APP_API_URL = "https://full-stack-mocktest.onrender.com";
+const REACT_APP_API_URL = "https://mock-test-daqa.onrender.com";
  
 const ProfilePage = () => {
   const [user, setUser] = useState(null);
