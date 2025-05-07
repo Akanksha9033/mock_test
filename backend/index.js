@@ -425,13 +425,12 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 // ✅ Updated CORS setup
 const allowedOrigins = ["https://mock-test-6lva.vercel.app", "http://localhost:3000"];
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
+  origin: [
+    "https://mock-test-6lva.vercel.app",
+    "https://mock-test-gozc.vercel.app",
+    "https://mock-test-gozc-cjvwp2n4k-akanksha9033s-projects.vercel.app",
+    "http://localhost:3000"
+  ],
   credentials: true,
 }));
 
