@@ -422,13 +422,12 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// ✅ Updated CORS setup
-const allowedOrigins = ["https://mock-test-6lva.vercel.app", "http://localhost:3000"];
+// ✅ UPDATED CORS
 app.use(cors({
   origin: [
     "https://mock-test-6lva.vercel.app",
     "https://mock-test-gozc.vercel.app",
-    "https://mock-test-gozc-cjvwp2n4k-akanksha9033s-projects.vercel.app",
+    "https://mock-test-gozc-cjywp2n4k-akanksha9033s-projects.vercel.app",  // ✅ added new Vercel domain
     "http://localhost:3000"
   ],
   credentials: true,
@@ -546,7 +545,6 @@ app.post("/api/auth/reset-password/:token", async (req, res) => {
 app.put("/api/auth/update-profile", verifyToken, async (req, res) => {
   try {
     const { phone, dob, location, description, social, profilePhoto } = req.body;
-
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -649,6 +647,6 @@ app.use("/", managementRoutes);
 const userTestDataRoutes = require('./routes/userTestData');
 app.use('/api', userTestDataRoutes);
 
-// ✅ Start server
+// ✅ Start server at the very end
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
