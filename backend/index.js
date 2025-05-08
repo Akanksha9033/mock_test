@@ -413,7 +413,6 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
 require("dotenv").config();
-const authenticate = require('./middleware/auth');
 const User = require('./models/User');
 const PasswordReset = require("./models/PasswordReset");
 const crypto = require("crypto");
@@ -425,7 +424,7 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// ✅ Fixed CORS configuration
+// ✅ CORS configuration
 const allowedOrigins = [
   "https://mock-test-6lva.vercel.app",
   "https://mock-test-gozc.vercel.app",
@@ -464,13 +463,6 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-const verifyRole = (roles) => (req, res, next) => {
-  if (!roles.includes(req.user.role)) {
-    return res.status(403).json({ message: "Access Forbidden" });
-  }
-  next();
-};
-
 // ✅ Forgot password
 app.post("/api/auth/forgot-password", async (req, res) => {
   const { email } = req.body;
@@ -495,7 +487,7 @@ app.post("/api/auth/forgot-password", async (req, res) => {
         },
       });
       const mailOptions = {
-        from: `\"edzesteducationservices@gmail.com\" <${process.env.EMAIL_USER}>`,
+        from: `"edzesteducationservices@gmail.com" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: "Reset your password",
         html: `
@@ -550,7 +542,7 @@ app.post("/api/auth/reset-password/:token", async (req, res) => {
   }
 });
 
-// ✅ Profile update → only ONE copy
+// ✅ Profile update
 app.put("/api/auth/update-profile", verifyToken, upload.none(), async (req, res) => {
   try {
     const { phone, dob, location, description, social, profilePhoto } = req.body;

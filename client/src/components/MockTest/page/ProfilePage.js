@@ -394,7 +394,7 @@ const ProfilePage = () => {
         setSocial(data.social || {});
         setPreviewPhoto(data.profilePhoto || "");
       } catch (err) {
-        console.error(err);
+        console.error("Failed to fetch profile:", err);
       }
     };
     fetchProfile();
@@ -403,14 +403,12 @@ const ProfilePage = () => {
   const handleSaveProfile = async () => {
     try {
       const token = localStorage.getItem("token");
-
       const formData = new FormData();
       formData.append("phone", phone);
       formData.append("dob", dob);
       formData.append("location", location);
       formData.append("description", description);
       formData.append("social", JSON.stringify(social));
-
       if (profilePhoto) {
         const reader = new FileReader();
         reader.onloadend = async () => {
@@ -422,7 +420,7 @@ const ProfilePage = () => {
         await sendProfileUpdate(formData, token);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Save profile error:", err);
       alert("Failed to update profile.");
     }
   };
@@ -430,14 +428,12 @@ const ProfilePage = () => {
   const sendProfileUpdate = async (formData, token) => {
     try {
       const res = await axios.put(`${REACT_APP_API_URL}/api/auth/update-profile`, formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
       setUser(res.data.user);
       alert("Profile updated successfully.");
     } catch (err) {
-      console.error(err);
+      console.error("Profile update error:", err);
       alert("Failed to update profile.");
     }
   };
@@ -489,57 +485,53 @@ const ProfilePage = () => {
   return (
     <div className="d-flex">
       {!isExamPage && (
-        <>
-          <div
-            className="bg-light border-end p-3 position-fixed d-flex flex-column justify-content-between"
-            style={{
-              width: isCollapsed ? "60px" : "250px",
-              height: "100vh",
-              transition: "width 0.3s ease",
-              zIndex: 1050,
-              overflow: "hidden",
-            }}
-          >
-            <div>
-              {!isCollapsed && <h4 className="mb-4">Admin Panel</h4>}
-              <ul style={{ listStyle: "none", padding: 0, width: "100%" }}>
-                <li className="mb-3 d-flex align-items-center">
-                  <Link to="/admin-dashboard" style={linkStyle}>
-                    <FaTachometerAlt className="me-2" />
-                    {!isCollapsed && "Dashboard"}
-                  </Link>
-                </li>
-                <li className="mb-3 d-flex align-items-center">
-                  <Link to="/mock-tests" style={linkStyle}>
-                    <FaFileAlt className="me-2" />
-                    {!isCollapsed && "Mock Tests"}
-                  </Link>
-                </li>
-                <li className="mb-3 d-flex align-items-center">
-                  <Link to="/profile" style={linkStyle}>
-                    <FaUser className="me-2" />
-                    {!isCollapsed && "Profile"}
-                  </Link>
-                </li>
-                <li className="mb-3 d-flex align-items-center">
-                  <Link to="/accounts" style={linkStyle}>
-                    <FaWallet className="me-2" />
-                    {!isCollapsed && "Accounts"}
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            <div
-              className="sidebar-link d-flex align-items-center mb-2"
-              onClick={handleLogout}
-              style={{ cursor: "pointer", padding: "10px 15px", color: "#343a40", fontWeight: "600" }}
-            >
-              <FaSignOutAlt className="me-2" />
-              {!isCollapsed && "Logout"}
-            </div>
+        <div
+          className="bg-light border-end p-3 position-fixed d-flex flex-column justify-content-between"
+          style={{
+            width: isCollapsed ? "60px" : "250px",
+            height: "100vh",
+            transition: "width 0.3s ease",
+            zIndex: 1050,
+            overflow: "hidden",
+          }}
+        >
+          <div>
+            {!isCollapsed && <h4 className="mb-4">Admin Panel</h4>}
+            <ul style={{ listStyle: "none", padding: 0 }}>
+              <li className="mb-3">
+                <Link to="/admin-dashboard" style={linkStyle}>
+                  <FaTachometerAlt className="me-2" />
+                  {!isCollapsed && "Dashboard"}
+                </Link>
+              </li>
+              <li className="mb-3">
+                <Link to="/mock-tests" style={linkStyle}>
+                  <FaFileAlt className="me-2" />
+                  {!isCollapsed && "Mock Tests"}
+                </Link>
+              </li>
+              <li className="mb-3">
+                <Link to="/profile" style={linkStyle}>
+                  <FaUser className="me-2" />
+                  {!isCollapsed && "Profile"}
+                </Link>
+              </li>
+              <li className="mb-3">
+                <Link to="/accounts" style={linkStyle}>
+                  <FaWallet className="me-2" />
+                  {!isCollapsed && "Accounts"}
+                </Link>
+              </li>
+            </ul>
           </div>
-        </>
+          <div
+            onClick={handleLogout}
+            style={{ cursor: "pointer", padding: "10px 15px", color: "#343a40", fontWeight: "600" }}
+          >
+            <FaSignOutAlt className="me-2" />
+            {!isCollapsed && "Logout"}
+          </div>
+        </div>
       )}
 
       <div
@@ -573,7 +565,6 @@ const ProfilePage = () => {
           background: "#fff",
           borderRadius: "8px",
           boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
-          height: "auto",
           overflowY: "auto",
         }}
       >
@@ -621,17 +612,13 @@ const ProfilePage = () => {
         <div style={{ marginBottom: "20px", width: "100%" }}>
           <label style={labelStyle}>Phone Number</label>
           <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} style={inputStyle} />
-
           <label style={labelStyle}>Date of Birth</label>
           <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} style={inputStyle} />
-
           <label style={labelStyle}>Location</label>
           <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} style={inputStyle} />
-
           <label style={labelStyle}>Description</label>
           <textarea
             rows="3"
-            placeholder="Tell us a little about yourself..."
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             style={{ ...inputStyle, resize: "vertical" }}
@@ -640,7 +627,6 @@ const ProfilePage = () => {
 
         <div style={{ marginBottom: "20px", width: "100%" }}>
           <h3 style={{ marginBottom: "10px", color: "#444" }}>Social Media Links</h3>
-
           {["facebook", "youtube", "linkedin", "telegram", "whatsapp"].map((platform) => (
             <div key={platform}>
               <label style={labelStyle}>
