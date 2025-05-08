@@ -419,19 +419,22 @@ const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 
 const app = express();
+
+// ✅ Middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// ✅ UPDATED CORS
-app.use(cors({
-  origin: [
-    "https://mock-test-6lva.vercel.app",
-    "https://mock-test-gozc.vercel.app",
-    "https://mock-test-gozc-cjywp2n4k-akanksha9033s-projects.vercel.app",  // ✅ added new Vercel domain
-    "http://localhost:3000"
-  ],
-  credentials: true,
-}));
+// ✅ Dynamic CORS middleware for multiple domains
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", req.headers.origin);
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 // ✅ Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, {
@@ -443,11 +446,10 @@ mongoose.connect(process.env.MONGO_URI, {
 
 // ✅ JWT Middleware
 const verifyToken = (req, res, next) => {
-  const token = req.header("Authorization");
+  const token = req.header("Authorization")?.replace("Bearer ", "");
   if (!token) return res.status(403).json({ message: "Access Denied" });
-
   try {
-    const decoded = jwt.verify(token.replace("Bearer ", ""), process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
     next();
   } catch (error) {
@@ -486,7 +488,7 @@ app.post("/api/auth/forgot-password", async (req, res) => {
         },
       });
       const mailOptions = {
-        from: `"edzesteducationservices@gmail.com" <${process.env.EMAIL_USER}>`,
+        from: `\"edzesteducationservices@gmail.com\" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: "Reset your password",
         html: `
@@ -541,7 +543,7 @@ app.post("/api/auth/reset-password/:token", async (req, res) => {
   }
 });
 
-// ✅ Profile update route
+// ✅ Profile update
 app.put("/api/auth/update-profile", verifyToken, async (req, res) => {
   try {
     const { phone, dob, location, description, social, profilePhoto } = req.body;
@@ -552,17 +554,10 @@ app.put("/api/auth/update-profile", verifyToken, async (req, res) => {
     if (dob) user.dob = dob;
     if (location) user.location = location;
     if (description) user.description = description;
-    if (social) {
-      try {
-        user.social = typeof social === "string" ? JSON.parse(social) : social;
-      } catch (err) {
-        return res.status(400).json({ message: "Invalid social data format" });
-      }
-    }
+    if (social) user.social = typeof social === "string" ? JSON.parse(social) : social;
     if (profilePhoto) user.profilePhoto = profilePhoto;
 
     await user.save();
-
     res.json({ message: "Profile updated successfully", user });
   } catch (error) {
     console.error("Profile update error:", error);
@@ -580,11 +575,7 @@ app.post("/api/auth/signin", async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role, name: user.name },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
+    const token = jwt.sign({ id: user._id, role: user.role, name: user.name }, process.env.JWT_SECRET, { expiresIn: "1h" });
 
     res.json({
       token,
@@ -610,11 +601,7 @@ app.post("/api/auth/register", async (req, res) => {
     const newUser = new User({ name, email, password: hashedPassword, role });
     await newUser.save();
 
-    const token = jwt.sign(
-      { id: newUser._id, role: newUser.role, name: newUser.name },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
+    const token = jwt.sign({ id: newUser._id, role: newUser.role, name: newUser.name }, process.env.JWT_SECRET, { expiresIn: "1h" });
 
     res.status(201).json({
       token,
@@ -637,7 +624,7 @@ app.get("/api/auth/profile", verifyToken, async (req, res) => {
   }
 });
 
-// ✅ Other routes
+// ✅ Additional routes
 const performanceRoutes = require("./routes/admin");
 app.use("/api/performance", performanceRoutes);
 const mockTestRoutes = require("./routes/admin");
@@ -647,6 +634,6 @@ app.use("/", managementRoutes);
 const userTestDataRoutes = require('./routes/userTestData');
 app.use('/api', userTestDataRoutes);
 
-// ✅ Start server at the very end
+// ✅ Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
