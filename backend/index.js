@@ -405,6 +405,247 @@
 // app.listen(PORT, () => console.log(`Server running on port ${PORT}`));  
 
 
+// const multer = require("multer");
+// const upload = multer();
+// const express = require("express");
+// const mongoose = require("mongoose");
+// const bcrypt = require("bcryptjs");
+// const jwt = require("jsonwebtoken");
+// const cors = require("cors");
+// require("dotenv").config();
+// const User = require('./models/User');
+// const PasswordReset = require("./models/PasswordReset");
+// const crypto = require("crypto");
+// const nodemailer = require("nodemailer");
+
+// const app = express();
+
+// // ✅ Middleware
+// app.use(express.json({ limit: '10mb' }));
+// app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// // ✅ CORS configuration
+// const allowedOrigins = [
+//   "https://mock-test-6lva.vercel.app",
+//   "https://mock-test-gozc.vercel.app",
+//   "http://localhost:3000"
+// ];
+
+// app.use(cors({
+//   origin: (origin, callback) => {
+//     if (!origin || allowedOrigins.includes(origin)) {
+//       callback(null, true);
+//     } else {
+//       callback(new Error("Not allowed by CORS"));
+//     }
+//   },
+//   credentials: true,
+// }));
+
+// // ✅ Connect to MongoDB
+// mongoose.connect(process.env.MONGO_URI, {
+//   useNewUrlParser: true,
+//   useUnifiedTopology: true,
+// })
+// .then(() => console.log("✅ Connected to MongoDB"))
+// .catch((error) => console.error("❌ MongoDB connection error:", error.message));
+
+// // ✅ JWT Middleware
+// const verifyToken = (req, res, next) => {
+//   const token = req.header("Authorization")?.replace("Bearer ", "");
+//   if (!token) return res.status(403).json({ message: "Access Denied" });
+//   try {
+//     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+//     req.user = decoded;
+//     next();
+//   } catch (error) {
+//     res.status(401).json({ message: "Invalid Token" });
+//   }
+// };
+
+// // ✅ Forgot password
+// app.post("/api/auth/forgot-password", async (req, res) => {
+//   const { email } = req.body;
+//   try {
+//     const user = await User.findOne({ email });
+//     if (!user) return res.status(404).json({ message: "User not found" });
+
+//     await PasswordReset.deleteMany({ email });
+//     const token = crypto.randomBytes(32).toString("hex");
+//     const expiresAt = Date.now() + 3600000;
+//     await PasswordReset.create({ email, token, expiresAt });
+
+//     const resetLink = `https://mock-full-stack-2.onrender.com/reset-password/${token}`;
+//     res.json({ message: "Password reset link sent to your email" });
+
+//     setImmediate(() => {
+//       const transporter = nodemailer.createTransport({
+//         service: "gmail",
+//         auth: {
+//           user: process.env.EMAIL_USER,
+//           pass: process.env.EMAIL_PASS,
+//         },
+//       });
+//       const mailOptions = {
+//         from: `"edzesteducationservices@gmail.com" <${process.env.EMAIL_USER}>`,
+//         to: email,
+//         subject: "Reset your password",
+//         html: `
+//           <p>Hello ${user.name || ""},</p>
+//           <p>You requested to reset your password.</p>
+//           <p>Click the link below to reset it. This link is valid for 1 hour:</p>
+//           <a href="${resetLink}" target="_blank">${resetLink}</a>
+//           <p>If you did not request this, you can ignore this email.</p>
+//         `,
+//       };
+//       transporter.sendMail(mailOptions).catch((err) => {
+//         console.error("Error sending reset email:", err);
+//       });
+//     });
+//   } catch (err) {
+//     console.error("Forgot password error:", err);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// });
+
+// // ✅ Reset password
+// app.post("/api/auth/reset-password/:token", async (req, res) => {
+//   const { token } = req.params;
+//   const { password } = req.body;
+//   try {
+//     const resetRecord = await PasswordReset.findOne({ token }).lean();
+//     if (!resetRecord || resetRecord.expiresAt < Date.now()) {
+//       return res.status(400).json({ message: "Token is invalid or expired" });
+//     }
+
+//     const user = await User.findOne({ email: resetRecord.email });
+//     if (!user) return res.status(404).json({ message: "User not found" });
+
+//     res.json({ message: "Password has been reset successfully" });
+
+//     setImmediate(async () => {
+//       try {
+//         const hashedPassword = await bcrypt.hash(password, 10);
+//         user.password = hashedPassword;
+//         await user.save();
+//         await PasswordReset.deleteMany({ email: resetRecord.email });
+//         console.log(`Password updated for ${user.email}`);
+//       } catch (innerErr) {
+//         console.error("Error in background password update:", innerErr);
+//       }
+//     });
+//   } catch (err) {
+//     console.error("Reset password error:", err);
+//     if (!res.headersSent) {
+//       res.status(500).json({ message: "Server error" });
+//     }
+//   }
+// });
+
+// // ✅ Profile update
+// app.put("/api/auth/update-profile", verifyToken, upload.none(), async (req, res) => {
+//   try {
+//     const { phone, dob, location, description, social, profilePhoto } = req.body;
+//     const user = await User.findById(req.user.id);
+//     if (!user) return res.status(404).json({ message: "User not found" });
+
+//     if (phone) user.phone = phone;
+//     if (dob) user.dob = dob;
+//     if (location) user.location = location;
+//     if (description) user.description = description;
+//     if (social) {
+//       try {
+//         user.social = typeof social === "string" ? JSON.parse(social) : social;
+//       } catch (err) {
+//         return res.status(400).json({ message: "Invalid social data format" });
+//       }
+//     }
+//     if (profilePhoto) user.profilePhoto = profilePhoto;
+
+//     await user.save();
+//     res.json({ message: "Profile updated successfully", user });
+//   } catch (error) {
+//     console.error("Profile update error:", error);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// });
+
+// // ✅ Signin
+// app.post("/api/auth/signin", async (req, res) => {
+//   try {
+//     const { email, password } = req.body;
+//     const user = await User.findOne({ email });
+//     if (!user) return res.status(404).json({ message: "User not found" });
+
+//     const isMatch = await bcrypt.compare(password, user.password);
+//     if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
+
+//     const token = jwt.sign({ id: user._id, role: user.role, name: user.name }, process.env.JWT_SECRET, { expiresIn: "1h" });
+
+//     res.json({
+//       token,
+//       user: { id: user._id, name: user.name, email: user.email, role: user.role },
+//     });
+//   } catch (error) {
+//     console.error("Signin error:", error);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// });
+
+// // ✅ Register
+// app.post("/api/auth/register", async (req, res) => {
+//   try {
+//     const { name, email, password } = req.body;
+//     const existingUser = await User.findOne({ email });
+//     if (existingUser) return res.status(400).json({ message: 'User already exists' });
+
+//     const hashedPassword = await bcrypt.hash(password, 10);
+//     const userCount = await User.countDocuments();
+//     let role = userCount === 0 ? "Admin" : "Student";
+
+//     const newUser = new User({ name, email, password: hashedPassword, role });
+//     await newUser.save();
+
+//     const token = jwt.sign({ id: newUser._id, role: newUser.role, name: newUser.name }, process.env.JWT_SECRET, { expiresIn: "1h" });
+
+//     res.status(201).json({
+//       token,
+//       user: { id: newUser._id, name: newUser.name, email: newUser.email, role: newUser.role },
+//     });
+//   } catch (error) {
+//     console.error("Signup error:", error);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// });
+
+// // ✅ Get profile details
+// app.get("/api/auth/profile", verifyToken, async (req, res) => {
+//   try {
+//     const user = await User.findById(req.user.id).select("-password");
+//     if (!user) return res.status(404).json({ message: "User not found" });
+//     res.json(user);
+//   } catch (error) {
+//     res.status(500).json({ message: "Server error" });
+//   }
+// });
+
+// // ✅ Additional routes
+// const performanceRoutes = require("./routes/admin");
+// app.use("/api/performance", performanceRoutes);
+// const mockTestRoutes = require("./routes/admin");
+// app.use("/api/admin", mockTestRoutes);
+// const managementRoutes = require("./routes/admin");
+// app.use("/", managementRoutes);
+
+// // ✅ CORRECTED: mount userTestData routes at /api/userTestData
+// const userTestDataRoutes = require('./routes/userTestData');
+// app.use('/api/userTestData', userTestDataRoutes);
+
+// // ✅ Start server
+// const PORT = process.env.PORT || 5000;
+// app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+
 const multer = require("multer");
 const upload = multer();
 const express = require("express");
@@ -413,49 +654,34 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
 require("dotenv").config();
+const authenticate = require('./middleware/auth');
 const User = require('./models/User');
 const PasswordReset = require("./models/PasswordReset");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 
 const app = express();
-
-// ✅ Middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
-
-// ✅ CORS configuration
-const allowedOrigins = [
-  "https://mock-test-6lva.vercel.app",
-  "https://mock-test-gozc.vercel.app",
-  "http://localhost:3000"
-];
-
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  credentials: true,
-}));
+app.use(cors());
 
 // ✅ Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => console.log("✅ Connected to MongoDB"))
-.catch((error) => console.error("❌ MongoDB connection error:", error.message));
+mongoose
+  .connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log("✅ Connected to MongoDB"))
+  .catch((error) =>
+    console.error("❌ MongoDB connection error:", error.message)
+  );
 
 // ✅ JWT Middleware
 const verifyToken = (req, res, next) => {
-  const token = req.header("Authorization")?.replace("Bearer ", "");
+  const token = req.header("Authorization");
   if (!token) return res.status(403).json({ message: "Access Denied" });
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token.replace("Bearer ", ""), process.env.JWT_SECRET);
     req.user = decoded;
     next();
   } catch (error) {
@@ -463,21 +689,27 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-// ✅ Forgot password
+// ✅ Role Middleware
+const verifyRole = (roles) => (req, res, next) => {
+  if (!roles.includes(req.user.role)) {
+    return res.status(403).json({ message: "Access Forbidden" });
+  }
+  next();
+};
+
+// ✅ Forgot Password
 app.post("/api/auth/forgot-password", async (req, res) => {
   const { email } = req.body;
   try {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "User not found" });
-
     await PasswordReset.deleteMany({ email });
     const token = crypto.randomBytes(32).toString("hex");
     const expiresAt = Date.now() + 3600000;
     await PasswordReset.create({ email, token, expiresAt });
-
     const resetLink = `https://mock-full-stack-2.onrender.com/reset-password/${token}`;
+    console.log("Reset Link:", resetLink);
     res.json({ message: "Password reset link sent to your email" });
-
     setImmediate(() => {
       const transporter = nodemailer.createTransport({
         service: "gmail",
@@ -495,6 +727,7 @@ app.post("/api/auth/forgot-password", async (req, res) => {
           <p>You requested to reset your password.</p>
           <p>Click the link below to reset it. This link is valid for 1 hour:</p>
           <a href="${resetLink}" target="_blank">${resetLink}</a>
+          <br/><br/>
           <p>If you did not request this, you can ignore this email.</p>
         `,
       };
@@ -508,7 +741,7 @@ app.post("/api/auth/forgot-password", async (req, res) => {
   }
 });
 
-// ✅ Reset password
+// ✅ Reset Password
 app.post("/api/auth/reset-password/:token", async (req, res) => {
   const { token } = req.params;
   const { password } = req.body;
@@ -517,12 +750,9 @@ app.post("/api/auth/reset-password/:token", async (req, res) => {
     if (!resetRecord || resetRecord.expiresAt < Date.now()) {
       return res.status(400).json({ message: "Token is invalid or expired" });
     }
-
     const user = await User.findOne({ email: resetRecord.email });
     if (!user) return res.status(404).json({ message: "User not found" });
-
     res.json({ message: "Password has been reset successfully" });
-
     setImmediate(async () => {
       try {
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -542,46 +772,26 @@ app.post("/api/auth/reset-password/:token", async (req, res) => {
   }
 });
 
-// ✅ Profile update
-app.put("/api/auth/update-profile", verifyToken, upload.none(), async (req, res) => {
-  try {
-    const { phone, dob, location, description, social, profilePhoto } = req.body;
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    if (phone) user.phone = phone;
-    if (dob) user.dob = dob;
-    if (location) user.location = location;
-    if (description) user.description = description;
-    if (social) {
-      try {
-        user.social = typeof social === "string" ? JSON.parse(social) : social;
-      } catch (err) {
-        return res.status(400).json({ message: "Invalid social data format" });
-      }
-    }
-    if (profilePhoto) user.profilePhoto = profilePhoto;
-
-    await user.save();
-    res.json({ message: "Profile updated successfully", user });
-  } catch (error) {
-    console.error("Profile update error:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
 // ✅ Signin
 app.post("/api/auth/signin", async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log("Sign-in request received:", email);
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User not found" });
-
+    if (!user) {
+      console.log("No user found for email:", email);
+      return res.status(404).json({ message: "User not found" });
+    }
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
-
-    const token = jwt.sign({ id: user._id, role: user.role, name: user.name }, process.env.JWT_SECRET, { expiresIn: "1h" });
-
+    if (!isMatch) {
+      console.log("Invalid password for user:", email);
+      return res.status(400).json({ message: "Invalid credentials" });
+    }
+    const token = jwt.sign(
+      { id: user._id, role: user.role, name: user.name },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
     res.json({
       token,
       user: { id: user._id, name: user.name, email: user.email, role: user.role },
@@ -598,16 +808,16 @@ app.post("/api/auth/register", async (req, res) => {
     const { name, email, password } = req.body;
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ message: 'User already exists' });
-
     const hashedPassword = await bcrypt.hash(password, 10);
     const userCount = await User.countDocuments();
     let role = userCount === 0 ? "Admin" : "Student";
-
     const newUser = new User({ name, email, password: hashedPassword, role });
     await newUser.save();
-
-    const token = jwt.sign({ id: newUser._id, role: newUser.role, name: newUser.name }, process.env.JWT_SECRET, { expiresIn: "1h" });
-
+    const token = jwt.sign(
+      { id: newUser._id, role: newUser.role, name: newUser.name },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
     res.status(201).json({
       token,
       user: { id: newUser._id, name: newUser.name, email: newUser.email, role: newUser.role },
@@ -618,7 +828,33 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
-// ✅ Get profile details
+// ✅ Profile Update (from 1st file, added here)
+app.put("/api/auth/update-profile", verifyToken, upload.none(), async (req, res) => {
+  try {
+    const { phone, dob, location, description, social, profilePhoto } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (phone) user.phone = phone;
+    if (dob) user.dob = dob;
+    if (location) user.location = location;
+    if (description) user.description = description;
+    if (social) {
+      try {
+        user.social = typeof social === "string" ? JSON.parse(social) : social;
+      } catch (err) {
+        return res.status(400).json({ message: "Invalid social data format" });
+      }
+    }
+    if (profilePhoto) user.profilePhoto = profilePhoto;
+    await user.save();
+    res.json({ message: "Profile updated successfully", user });
+  } catch (error) {
+    console.error("Profile update error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ✅ Get Profile Details
 app.get("/api/auth/profile", verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select("-password");
@@ -629,7 +865,39 @@ app.get("/api/auth/profile", verifyToken, async (req, res) => {
   }
 });
 
-// ✅ Additional routes
+// ✅ Admin User Management
+app.post("/api/admin/users", verifyToken, verifyRole(["Admin"]), async (req, res) => {
+  try {
+    const { name, email, password, role } = req.body;
+    const formattedRole = role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+    const validRoles = ["Student", "Teacher", "Management"];
+    if (!validRoles.includes(formattedRole)) {
+      return res.status(400).json({ message: "Invalid role" });
+    }
+    const existingUser = await User.findOne({ email });
+    if (existingUser) return res.status(400).json({ message: "User already exists" });
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new User({ name, email, password: hashedPassword, role: formattedRole });
+    await newUser.save();
+    res.status(201).json({ message: "User added successfully", newUser });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.delete("/api/admin/users/:id", verifyToken, verifyRole(["Admin"]), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    await User.findByIdAndDelete(id);
+    res.json({ message: "User deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ✅ Routes Setup
 const performanceRoutes = require("./routes/admin");
 app.use("/api/performance", performanceRoutes);
 const mockTestRoutes = require("./routes/admin");
@@ -637,8 +905,8 @@ app.use("/api/admin", mockTestRoutes);
 const managementRoutes = require("./routes/admin");
 app.use("/", managementRoutes);
 const userTestDataRoutes = require('./routes/userTestData');
-app.use('/api', userTestDataRoutes);
+app.use('/api/userTestData', userTestDataRoutes);
 
-// ✅ Start server
+// ✅ Start Server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
