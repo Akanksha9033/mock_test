@@ -238,6 +238,13 @@
 
 const express = require("express");
 const router = express.Router();
+router.use((req, res, next) => {
+  console.log(`👉 Incoming request: ${req.method} ${req.originalUrl}`);
+  console.log('👉 Body:', req.body);
+  console.log('👉 Query:', req.query);
+  next();
+});
+
 const StudentTestData = require("../models/StudentTestData");
 const MockTest = require("../models/MockTest");
 const User = require("../models/User");
@@ -247,14 +254,17 @@ const User = require("../models/User");
 
 router.post('/submit-test', async (req, res) => {
   try {
+    console.log('🚀 /submit-test called');
     const { userId, testId, answers } = req.body;
 
     if (!userId || !testId || !answers) {
+      console.warn('⚠ Missing required fields', { userId, testId, answers });
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
     const test = await MockTest.findById(testId);
     if (!test) {
+      console.warn('⚠ Test not found:', testId);
       return res.status(404).json({ message: 'Test not found' });
     }
 
@@ -266,7 +276,6 @@ router.post('/submit-test', async (req, res) => {
       const userAnswer = answers[qId];
       let isCorrect = false;
 
-      // ✅ Check Multi-Select and Drag-and-Drop correctly
       if (q.questionType === 'Multi-Select' || q.questionType === 'Drag and Drop') {
         isCorrect = Array.isArray(userAnswer?.selectedOption) &&
           Array.isArray(q.answer) &&
@@ -300,6 +309,7 @@ router.post('/submit-test', async (req, res) => {
 
     await submission.save();
 
+    console.log('✅ Submission saved:', submission._id);
     res.status(201).json({ message: 'Submission saved', submissionId: submission._id });
   } catch (err) {
     console.error('❌ Error in POST /submit-test:', err);
