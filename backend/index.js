@@ -665,18 +665,13 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(cors());
 
-// ✅ Connect to MongoDB
-mongoose
-  .connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => console.log("✅ Connected to MongoDB"))
-  .catch((error) =>
-    console.error("❌ MongoDB connection error:", error.message)
-  );
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => console.log("✅ Connected to MongoDB"))
+.catch((error) => console.error("❌ MongoDB connection error:", error.message));
 
-// ✅ JWT Middleware
 const verifyToken = (req, res, next) => {
   const token = req.header("Authorization");
   if (!token) return res.status(403).json({ message: "Access Denied" });
@@ -689,7 +684,6 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-// ✅ Role Middleware
 const verifyRole = (roles) => (req, res, next) => {
   if (!roles.includes(req.user.role)) {
     return res.status(403).json({ message: "Access Forbidden" });
@@ -697,7 +691,6 @@ const verifyRole = (roles) => (req, res, next) => {
   next();
 };
 
-// ✅ Forgot Password
 app.post("/api/auth/forgot-password", async (req, res) => {
   const { email } = req.body;
   try {
@@ -713,23 +706,17 @@ app.post("/api/auth/forgot-password", async (req, res) => {
     setImmediate(() => {
       const transporter = nodemailer.createTransport({
         service: "gmail",
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
+        auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
       });
       const mailOptions = {
         from: `"edzesteducationservices@gmail.com" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: "Reset your password",
-        html: `
-          <p>Hello ${user.name || ""},</p>
-          <p>You requested to reset your password.</p>
-          <p>Click the link below to reset it. This link is valid for 1 hour:</p>
-          <a href="${resetLink}" target="_blank">${resetLink}</a>
-          <br/><br/>
-          <p>If you did not request this, you can ignore this email.</p>
-        `,
+        html: `<p>Hello ${user.name || ""},</p>
+               <p>You requested to reset your password.</p>
+               <p>Click the link below to reset it. This link is valid for 1 hour:</p>
+               <a href="${resetLink}" target="_blank">${resetLink}</a>
+               <p>If you did not request this, you can ignore this email.</p>`,
       };
       transporter.sendMail(mailOptions).catch((err) => {
         console.error("Error sending reset email:", err);
@@ -741,7 +728,6 @@ app.post("/api/auth/forgot-password", async (req, res) => {
   }
 });
 
-// ✅ Reset Password
 app.post("/api/auth/reset-password/:token", async (req, res) => {
   const { token } = req.params;
   const { password } = req.body;
@@ -766,69 +752,44 @@ app.post("/api/auth/reset-password/:token", async (req, res) => {
     });
   } catch (err) {
     console.error("Reset password error:", err);
-    if (!res.headersSent) {
-      res.status(500).json({ message: "Server error" });
-    }
+    if (!res.headersSent) res.status(500).json({ message: "Server error" });
   }
 });
 
-// ✅ Signin
 app.post("/api/auth/signin", async (req, res) => {
   try {
     const { email, password } = req.body;
     console.log("Sign-in request received:", email);
     const user = await User.findOne({ email });
-    if (!user) {
-      console.log("No user found for email:", email);
-      return res.status(404).json({ message: "User not found" });
-    }
+    if (!user) return res.status(404).json({ message: "User not found" });
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      console.log("Invalid password for user:", email);
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
-    const token = jwt.sign(
-      { id: user._id, role: user.role, name: user.name },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
-    res.json({
-      token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
-    });
+    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
+    const token = jwt.sign({ id: user._id, role: user.role, name: user.name }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
   } catch (error) {
     console.error("Signin error:", error);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-// ✅ Register
 app.post("/api/auth/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
     const existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ message: 'User already exists' });
+    if (existingUser) return res.status(400).json({ message: "User already exists" });
     const hashedPassword = await bcrypt.hash(password, 10);
     const userCount = await User.countDocuments();
     let role = userCount === 0 ? "Admin" : "Student";
     const newUser = new User({ name, email, password: hashedPassword, role });
     await newUser.save();
-    const token = jwt.sign(
-      { id: newUser._id, role: newUser.role, name: newUser.name },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
-    res.status(201).json({
-      token,
-      user: { id: newUser._id, name: newUser.name, email: newUser.email, role: newUser.role },
-    });
+    const token = jwt.sign({ id: newUser._id, role: newUser.role, name: newUser.name }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    res.status(201).json({ token, user: { id: newUser._id, name: newUser.name, email: newUser.email, role: newUser.role } });
   } catch (error) {
     console.error("Signup error:", error);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-// ✅ Profile Update (from 1st file, added here)
 app.put("/api/auth/update-profile", verifyToken, upload.none(), async (req, res) => {
   try {
     const { phone, dob, location, description, social, profilePhoto } = req.body;
@@ -854,7 +815,6 @@ app.put("/api/auth/update-profile", verifyToken, upload.none(), async (req, res)
   }
 });
 
-// ✅ Get Profile Details
 app.get("/api/auth/profile", verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select("-password");
@@ -865,7 +825,6 @@ app.get("/api/auth/profile", verifyToken, async (req, res) => {
   }
 });
 
-// ✅ Admin User Management
 app.post("/api/admin/users", verifyToken, verifyRole(["Admin"]), async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
@@ -897,16 +856,18 @@ app.delete("/api/admin/users/:id", verifyToken, verifyRole(["Admin"]), async (re
   }
 });
 
-// ✅ Routes Setup
+// ✅ Route setup
 const performanceRoutes = require("./routes/admin");
 app.use("/api/performance", performanceRoutes);
+
 const mockTestRoutes = require("./routes/admin");
 app.use("/api/admin", mockTestRoutes);
+
 const managementRoutes = require("./routes/admin");
 app.use("/", managementRoutes);
-const userTestDataRoutes = require('./routes/userTestData');
-app.use('/api/userTestData', userTestDataRoutes);
 
-// ✅ Start Server
+const userTestDataRoutes = require("./routes/userTestData");
+app.use("/api/userTestData", userTestDataRoutes);
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
