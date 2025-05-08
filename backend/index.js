@@ -901,6 +901,8 @@ const managementRoutes = require("./routes/admin");
 app.use("/", managementRoutes);
 const userTestDataRoutes = require('./routes/userTestData');
 app.use('/api/userTestData', userTestDataRoutes);
+app.use('/api/performance', performanceRoutes);
+app.use('/api/admin', mockTestRoutes);
 
 // ✅ Start server
 const PORT = process.env.PORT || 5000;
