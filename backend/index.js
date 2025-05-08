@@ -549,6 +549,7 @@ app.post("/api/auth/reset-password/:token", async (req, res) => {
   }
 });
 
+
 // ✅ Profile update
 app.put("/api/auth/update-profile", verifyToken, async (req, res) => {
   try {
@@ -561,6 +562,33 @@ app.put("/api/auth/update-profile", verifyToken, async (req, res) => {
     if (location) user.location = location;
     if (description) user.description = description;
     if (social) user.social = typeof social === "string" ? JSON.parse(social) : social;
+    if (profilePhoto) user.profilePhoto = profilePhoto;
+
+    await user.save();
+    res.json({ message: "Profile updated successfully", user });
+  } catch (error) {
+    console.error("Profile update error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.put("/api/auth/update-profile", verifyToken, upload.none(), async (req, res) => {
+  try {
+    const { phone, dob, location, description, social, profilePhoto } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (phone) user.phone = phone;
+    if (dob) user.dob = dob;
+    if (location) user.location = location;
+    if (description) user.description = description;
+    if (social) {
+      try {
+        user.social = typeof social === "string" ? JSON.parse(social) : social;
+      } catch (err) {
+        return res.status(400).json({ message: "Invalid social data format" });
+      }
+    }
     if (profilePhoto) user.profilePhoto = profilePhoto;
 
     await user.save();
