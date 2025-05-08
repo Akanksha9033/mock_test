@@ -405,7 +405,8 @@
 // app.listen(PORT, () => console.log(`Server running on port ${PORT}`));  
 
 
-
+const multer = require("multer");
+const upload = multer();
 const express = require("express");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
@@ -551,7 +552,8 @@ app.post("/api/auth/reset-password/:token", async (req, res) => {
 
 
 // ✅ Profile update
-app.put("/api/auth/update-profile", verifyToken, async (req, res) => {
+app.put("/api/auth/update-profile", verifyToken, upload.none(), async (req, res) => {
+
   try {
     const { phone, dob, location, description, social, profilePhoto } = req.body;
     const user = await User.findById(req.user.id);
