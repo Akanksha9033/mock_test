@@ -654,29 +654,49 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
 require("dotenv").config();
-const authenticate = require('./middleware/auth');
-const User = require('./models/User');
-const PasswordReset = require("./models/PasswordReset");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 
+const authenticate = require('./middleware/auth');
+const User = require('./models/User');
+const PasswordReset = require("./models/PasswordReset");
+
 const app = express();
+
+// ✅ Middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
-app.use(cors());
 
+// ✅ CORS configuration
+const allowedOrigins = [
+  "https://mock-test-6lva.vercel.app",
+  "https://mock-test-gozc.vercel.app",
+  "http://localhost:3000"
+];
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+}));
+
+// ✅ Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-})
-.then(() => console.log("✅ Connected to MongoDB"))
-.catch((error) => console.error("❌ MongoDB connection error:", error.message));
+}).then(() => console.log("✅ Connected to MongoDB"))
+  .catch((error) => console.error("❌ MongoDB connection error:", error.message));
 
+// ✅ JWT Middleware
 const verifyToken = (req, res, next) => {
-  const token = req.header("Authorization");
+  const token = req.header("Authorization")?.replace("Bearer ", "");
   if (!token) return res.status(403).json({ message: "Access Denied" });
   try {
-    const decoded = jwt.verify(token.replace("Bearer ", ""), process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
     next();
   } catch (error) {
@@ -691,18 +711,21 @@ const verifyRole = (roles) => (req, res, next) => {
   next();
 };
 
+// ✅ Forgot password
 app.post("/api/auth/forgot-password", async (req, res) => {
   const { email } = req.body;
   try {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "User not found" });
+
     await PasswordReset.deleteMany({ email });
     const token = crypto.randomBytes(32).toString("hex");
     const expiresAt = Date.now() + 3600000;
     await PasswordReset.create({ email, token, expiresAt });
+
     const resetLink = `https://mock-full-stack-2.onrender.com/reset-password/${token}`;
-    console.log("Reset Link:", resetLink);
     res.json({ message: "Password reset link sent to your email" });
+
     setImmediate(() => {
       const transporter = nodemailer.createTransport({
         service: "gmail",
@@ -712,15 +735,9 @@ app.post("/api/auth/forgot-password", async (req, res) => {
         from: `"edzesteducationservices@gmail.com" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: "Reset your password",
-        html: `<p>Hello ${user.name || ""},</p>
-               <p>You requested to reset your password.</p>
-               <p>Click the link below to reset it. This link is valid for 1 hour:</p>
-               <a href="${resetLink}" target="_blank">${resetLink}</a>
-               <p>If you did not request this, you can ignore this email.</p>`,
+        html: `<p>Hello ${user.name || ""},</p><p>You requested to reset your password.</p><p>Click the link below to reset it. This link is valid for 1 hour:</p><a href="${resetLink}" target="_blank">${resetLink}</a><p>If you did not request this, you can ignore this email.</p>`
       };
-      transporter.sendMail(mailOptions).catch((err) => {
-        console.error("Error sending reset email:", err);
-      });
+      transporter.sendMail(mailOptions).catch((err) => console.error("Error sending reset email:", err));
     });
   } catch (err) {
     console.error("Forgot password error:", err);
@@ -728,6 +745,7 @@ app.post("/api/auth/forgot-password", async (req, res) => {
   }
 });
 
+// ✅ Reset password
 app.post("/api/auth/reset-password/:token", async (req, res) => {
   const { token } = req.params;
   const { password } = req.body;
@@ -736,9 +754,12 @@ app.post("/api/auth/reset-password/:token", async (req, res) => {
     if (!resetRecord || resetRecord.expiresAt < Date.now()) {
       return res.status(400).json({ message: "Token is invalid or expired" });
     }
+
     const user = await User.findOne({ email: resetRecord.email });
     if (!user) return res.status(404).json({ message: "User not found" });
+
     res.json({ message: "Password has been reset successfully" });
+
     setImmediate(async () => {
       try {
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -756,57 +777,20 @@ app.post("/api/auth/reset-password/:token", async (req, res) => {
   }
 });
 
-app.post("/api/auth/signin", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    console.log("Sign-in request received:", email);
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User not found" });
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
-    const token = jwt.sign({ id: user._id, role: user.role, name: user.name }, process.env.JWT_SECRET, { expiresIn: "1h" });
-    res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
-  } catch (error) {
-    console.error("Signin error:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-app.post("/api/auth/register", async (req, res) => {
-  try {
-    const { name, email, password } = req.body;
-    const existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ message: "User already exists" });
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const userCount = await User.countDocuments();
-    let role = userCount === 0 ? "Admin" : "Student";
-    const newUser = new User({ name, email, password: hashedPassword, role });
-    await newUser.save();
-    const token = jwt.sign({ id: newUser._id, role: newUser.role, name: newUser.name }, process.env.JWT_SECRET, { expiresIn: "1h" });
-    res.status(201).json({ token, user: { id: newUser._id, name: newUser.name, email: newUser.email, role: newUser.role } });
-  } catch (error) {
-    console.error("Signup error:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
+// ✅ Profile update
 app.put("/api/auth/update-profile", verifyToken, upload.none(), async (req, res) => {
   try {
     const { phone, dob, location, description, social, profilePhoto } = req.body;
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: "User not found" });
+
     if (phone) user.phone = phone;
     if (dob) user.dob = dob;
     if (location) user.location = location;
     if (description) user.description = description;
-    if (social) {
-      try {
-        user.social = typeof social === "string" ? JSON.parse(social) : social;
-      } catch (err) {
-        return res.status(400).json({ message: "Invalid social data format" });
-      }
-    }
+    if (social) user.social = typeof social === "string" ? JSON.parse(social) : social;
     if (profilePhoto) user.profilePhoto = profilePhoto;
+
     await user.save();
     res.json({ message: "Profile updated successfully", user });
   } catch (error) {
@@ -815,6 +799,89 @@ app.put("/api/auth/update-profile", verifyToken, upload.none(), async (req, res)
   }
 });
 
+// ✅ Signin
+app.post("/api/auth/signin", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
+
+    const token = jwt.sign({ id: user._id, role: user.role, name: user.name }, process.env.JWT_SECRET, { expiresIn: "1h" });
+
+    res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
+  } catch (error) {
+    console.error("Signin error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ✅ Register
+app.post("/api/auth/register", async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    const existingUser = await User.findOne({ email });
+    if (existingUser) return res.status(400).json({ message: 'User already exists' });
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const userCount = await User.countDocuments();
+    let role = userCount === 0 ? "Admin" : "Student";
+
+    const newUser = new User({ name, email, password: hashedPassword, role });
+    await newUser.save();
+
+    const token = jwt.sign({ id: newUser._id, role: newUser.role, name: newUser.name }, process.env.JWT_SECRET, { expiresIn: "1h" });
+
+    res.status(201).json({ token, user: { id: newUser._id, name: newUser.name, email: newUser.email, role: newUser.role } });
+  } catch (error) {
+    console.error("Signup error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ✅ Admin creating new users
+app.post("/api/admin/users", verifyToken, verifyRole(["Admin"]), async (req, res) => {
+  try {
+    const { name, email, password, role } = req.body;
+    const formattedRole = role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+    const validRoles = ["Student", "Teacher", "Management"];
+    if (!validRoles.includes(formattedRole)) return res.status(400).json({ message: "Invalid role" });
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) return res.status(400).json({ message: "User already exists" });
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new User({ name, email, password: hashedPassword, role: formattedRole });
+    await newUser.save();
+
+    res.status(201).json({ message: "User added successfully", newUser });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.post('/api/admin/create-user', authenticate, async (req, res) => {
+  try {
+    const { name, email, password, role } = req.body;
+    if (req.user.role !== 'Admin') return res.status(403).json({ message: 'Unauthorized' });
+    if (!['Teacher', 'Management'].includes(role)) return res.status(400).json({ message: 'Invalid role' });
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) return res.status(400).json({ message: 'User already exists' });
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new User({ name, email, password: hashedPassword, role });
+    await newUser.save();
+
+    res.status(201).json({ message: `${role} account created successfully` });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ✅ Get profile details
 app.get("/api/auth/profile", verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select("-password");
@@ -825,49 +892,16 @@ app.get("/api/auth/profile", verifyToken, async (req, res) => {
   }
 });
 
-app.post("/api/admin/users", verifyToken, verifyRole(["Admin"]), async (req, res) => {
-  try {
-    const { name, email, password, role } = req.body;
-    const formattedRole = role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
-    const validRoles = ["Student", "Teacher", "Management"];
-    if (!validRoles.includes(formattedRole)) {
-      return res.status(400).json({ message: "Invalid role" });
-    }
-    const existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ message: "User already exists" });
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ name, email, password: hashedPassword, role: formattedRole });
-    await newUser.save();
-    res.status(201).json({ message: "User added successfully", newUser });
-  } catch (error) {
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-app.delete("/api/admin/users/:id", verifyToken, verifyRole(["Admin"]), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const user = await User.findById(id);
-    if (!user) return res.status(404).json({ message: "User not found" });
-    await User.findByIdAndDelete(id);
-    res.json({ message: "User deleted successfully" });
-  } catch (error) {
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-// ✅ Route setup
+// ✅ Additional routes
 const performanceRoutes = require("./routes/admin");
 app.use("/api/performance", performanceRoutes);
-
 const mockTestRoutes = require("./routes/admin");
 app.use("/api/admin", mockTestRoutes);
-
 const managementRoutes = require("./routes/admin");
 app.use("/", managementRoutes);
+const userTestDataRoutes = require('./routes/userTestData');
+app.use('/api/userTestData', userTestDataRoutes);
 
-const userTestDataRoutes = require("./routes/userTestData");
-app.use("/api/userTestData", userTestDataRoutes);
-
+// ✅ Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
