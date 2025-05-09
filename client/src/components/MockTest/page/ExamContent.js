@@ -787,7 +787,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import ExamContentLayout from "./ExamContentLayout";
 
-const REACT_APP_API_URL = "https://full-stack-mocktest.onrender.com";  // ✅ KEEP ONLY THIS
+const REACT_APP_API_URL = "https://mock-test-daqa.onrender.com"  // ✅ KEEP ONLY THIS
 
 const ExamContent = ({
   test,
@@ -1035,9 +1035,9 @@ const ExamContent = ({
 
       const response = await axios.post(`${REACT_APP_API_URL}/api/userTestData/submit-test`, payload);
 
-      const result = response.data;
+        const result = response.data;
       toast.success("Test submitted successfully!");
-      setLastSubmittedResultId(result.resultId || result._id);
+      setLastSubmittedResultId(result.resultId || result._id);  
     } catch (err) {
       const errorMsg = err.response?.data?.error || "Submission failed.";
       if (errorMsg.includes("Maximum")) {
